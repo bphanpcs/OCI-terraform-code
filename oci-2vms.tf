@@ -1,84 +1,59 @@
-# Configure the required providers and their versions
-terraform {
-  required_providers {
-    oci = {
-      source  = "oracle-terraform-modules/oci"
-      version = ">= 4.40.0"
-    }
-  }
-}
-
-# Configure the OCI provider with your authentication details
+# Configure the OCI provider
 provider "oci" {
-  tenancy_ocid     = "<TENANCY_OCID>"
-  user_ocid        = "<USER_OCID>"
-  fingerprint      = "<FINGERPRINT>"
-  private_key_path = "<PRIVATE_KEY_PATH>"
-  region           = "<REGION>"
+  tenancy_ocid = "YOUR_TENANCY_OCID"
+  user_ocid = "YOUR_USER_OCID"
+  fingerprint = "YOUR_FINGERPRINT"
+  private_key_path = "YOUR_PRIVATE_KEY_PATH"
+  region = "YOUR_REGION"
 }
 
-# Define the compartment OCID in a local variable for reuse
-locals {
-  compartment_ocid = "<COMPARTMENT_OCID>"
+# Define variables for the VMs
+variable "vm_count" {
+  default = 2
 }
 
-# Create a Virtual Cloud Network (VCN) in the specified compartment
-resource "oci_core_vcn" "this" {
-  cidr_block     = "<VCN_CIDR_BLOCK>"
-  compartment_id = local.compartment_ocid
-  display_name   = "example-vcn"
+variable "vm_name_prefix" {
+  default = "my-vm"
 }
 
-# Create a subnet within the VCN in the specified compartment and availability domain
-resource "oci_core_subnet" "this" {
-  cidr_block     = "<SUBNET_CIDR_BLOCK>"
-  compartment_id = local.compartment_ocid
-  vcn_id         = oci_core_vcn.this.id
-  display_name   = "example-subnet"
-  dns_label      = "examplesub"
-  availability_domain = "<AVAILABILITY_DOMAIN>"
+variable "vm_shape" {
+  default = "VM.Standard2.1"
 }
 
-# Create the first VM instance within the subnet in the specified compartment and availability domain
-resource "oci_core_instance" "vm1" {
-  compartment_id = local.compartment_ocid
-  availability_domain = "<AVAILABILITY_DOMAIN>"
-  shape = "VM.Standard.E3.Flex"
+variable "vm_image" {
+  default = "ocid1.image.oc1.iad.YOUR_IMAGE_OCID"
+}
 
-  display_name = "vm1"
+variable "subnet_id" {
+  default = "ocid1.subnet.oc1.iad.YOUR_SUBNET_OCID"
+}
 
-  # Use an existing image as the source for the instance
-  source_details {
-    source_type = "image"
-    source_id = "ocid1.image.oc1..<your_image_id>"
+# Create the VM instances
+resource "oci_core_instance" "vm" {
+  count = var.vm_count
+
+  display_name = "${var.vm_name_prefix}-${count.index+1}"
+  compartment_id = "YOUR_COMPARTMENT_OCID"
+  shape = var.vm_shape
+  image_id = var.vm_image
+  subnet_id = var.subnet_id
+
+  metadata = {
+    ssh_authorized_keys = "YOUR_SSH_KEY"
   }
 
-  # Create a VNIC for the instance and attach it to the subnet
-  create_vnic_details {
-    subnet_id = oci_core_subnet.this.id
-    display_name = "vm1-vnic"
-    hostname_label = "vm1"
+  # Allow unrestricted outbound Internet access
+  network_security_group_ids = [oci_core_network_security_group.vm_nsg.id]
+}
+
+# Create a network security group to allow outbound Internet access
+resource "oci_core_network_security_group" "vm_nsg" {
+  compartment_id = "YOUR_COMPARTMENT_OCID"
+  vcn_id = "YOUR_VCN_OCID"
+
+  egress_security_rules {
+    protocol = "all"
+    destination = "0.0.0.0/0"
   }
 }
 
-# Create the second VM instance within the subnet in the specified compartment and availability domain
-resource "oci_core_instance" "vm2" {
-  compartment_id = local.compartment_ocid
-  availability_domain = "<AVAILABILITY_DOMAIN>"
-  shape = "VM.Standard.E3.Flex"
-
-  display_name = "vm2"
-
-  # Use an existing image as the source for the instance
-  source_details {
-    source_type = "image"
-    source_id = "ocid1.image.oc1..<your_image_id>"
-  }
-
-  # Create a VNIC for the instance and attach it to the subnet
-  create_vnic_details {
-    subnet_id = oci_core_subnet.this.id
-    display_name = "vm2-vnic"
-    hostname_label = "vm2"
-  }
-}
