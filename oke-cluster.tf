@@ -16,7 +16,7 @@ locals {
 resource "oci_containerengine_cluster" "oke_cluster" {
   compartment_id = local.compartment_id
   name           = "my-oke-cluster"
-  kubernetes_version = "v1.20.8"
+  kubernetes_version = "v1.25.4"
   vcn_id         = "YOUR_VCN_OCID"
   kubernetes_network_config {
     pod_cidr_block = "10.244.0.0/16"
